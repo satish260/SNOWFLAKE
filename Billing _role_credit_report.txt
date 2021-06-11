@@ -1,4 +1,4 @@
---Three basic pieces of info.
+
 select sum(total_elapsed_time), warehouse_name from "SNOWFLAKE"."ACCOUNT_USAGE"."QUERY_HISTORY" group by warehouse_name; -- warehouse_spend
 
 select sum(total_elapsed_time), warehouse_name, role_name from "SNOWFLAKE"."ACCOUNT_USAGE"."QUERY_HISTORY" group by warehouse_name, role_name; -- role spend
