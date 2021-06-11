@@ -1,0 +1,43 @@
+--Three basic pieces of info.
+select sum(total_elapsed_time), warehouse_name from "SNOWFLAKE"."ACCOUNT_USAGE"."QUERY_HISTORY" group by warehouse_name; -- warehouse_spend
+
+select sum(total_elapsed_time), warehouse_name, role_name from "SNOWFLAKE"."ACCOUNT_USAGE"."QUERY_HISTORY" group by warehouse_name, role_name; -- role spend
+
+select sum(Credits_used), warehouse_name from "SNOWFLAKE"."ACCOUNT_USAGE"."WAREHOUSE_METERING_HISTORY" group by warehouse_name; -- credits_used
+
+-- what did each warehouse & Role spend on credits?
+create or replace tempORARY table Whse_Role_Spend as
+with Warehouse_Spend as 
+(select sum(total_elapsed_time) Total_Elapsed, warehouse_name from "SNOWFLAKE"."ACCOUNT_USAGE"."QUERY_HISTORY" group by warehouse_name)
+,Role_Spend as (select sum(total_elapsed_time) Total_Elapsed, warehouse_name, role_name from "SNOWFLAKE"."ACCOUNT_USAGE"."QUERY_HISTORY" group by warehouse_name, role_name)
+,Credits_Used as (select sum(Credits_used) Credits_Used, warehouse_name from "SNOWFLAKE"."ACCOUNT_USAGE"."WAREHOUSE_METERING_HISTORY" group by warehouse_name)
+select Role_Spend.Warehouse_Name, Role_Spend.Role_Name,
+(Role_Spend.Total_Elapsed / Warehouse_Spend.Total_Elapsed ) * Credits_Used.Credits_Used as Credits_By_Role
+-- Warehouse_Spend.*,  Role_Spend.*, Credits_Used.*
+FROM Credits_Used
+join Role_Spend on Role_Spend.Warehouse_Name = Credits_Used.Warehouse_Name
+join Warehouse_Spend on Warehouse_Spend.warehouse_Name = Credits_Used.Warehouse_Name
+--order by 1,2
+
+-- by warehouse
+create or replace tempORARY table Whse_Spend as
+WITH
+ Warehouse_Spend AS (SELECT sum(total_elapsed_time) AS Total_Elapsed, Warehouse_Name        FROM "SNOWFLAKE"."ACCOUNT_USAGE"."QUERY_HISTORY" GROUP BY Warehouse_Name)
+,Role_Spend      AS (SELECT sum(total_elapsed_time) AS Total_Elapsed, Warehouse_Name, Role_Name FROM "SNOWFLAKE"."ACCOUNT_USAGE"."QUERY_HISTORY" GROUP BY Warehouse_Name, Role_Name)
+SELECT
+    Credits.Warehouse_Name,
+    sum(Credits.Credits_Used)                                                                                                                                                                                                 AS Credits_Used,
+    sum(Warehouse_Spend.Total_Elapsed)                                                                                                                                                                                         AS Total_Elapsed,
+    sum(Role_Spend.Total_Elapsed)                                                                                                                                                                                                      AS role_time,
+    (sum(Role_Spend.Total_Elapsed) / sum(Warehouse_Spend.Total_Elapsed)) * sum(Credits.Credits_used)       AS Credits_By_Whse
+FROM "SNOWFLAKE"."ACCOUNT_USAGE"."WAREHOUSE_METERING_HISTORY"                                                                                                      AS Credits
+LEFT JOIN Warehouse_Spend ON Warehouse_Spend.Warehouse_Name = Credits.Warehouse_Name
+LEFT JOIN Role_Spend      ON Role_Spend.Warehouse_Name      = Credits.Warehouse_Name
+GROUP BY Credits.Warehouse_Name
+--order by Warehouse_Name
+-- results
+select * FROM Whse_Role_Spend order by 1,2
+select * FROM Whse_Spend order by 1
+-- checksum:
+select sum(credits_by_role) from Whse_Role_Spend
+select sum(credits_by_whse) from Whse_Spend (edited) 
